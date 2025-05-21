@@ -75,20 +75,23 @@ int main() {
         input[i] = i;
     }
 
-    clock_t start, end;
+    clock_t start2, end2;
 
     // Sequential
-    start = clock();
+    start2 = clock();
     int* output_seq = seq_map(input, INPUT_SIZE, add_one);
-    end = clock();
-    printf("Sequential took %.2f ms\n", millis(start, end));
+    end2 = clock();
+    printf("Sequential took %.2f ms\n", millis(start2, end2));
     free(output_seq);
 
     // Parallel
-    start = clock();
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     int* output_par = par_map(input, INPUT_SIZE, add_one, 8);
-    end = clock();
-    printf("Parallel (8 threads) took %.2f ms\n", millis(start, end));
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double elapsed_ms = (end.tv_sec - start.tv_sec) * 1000.0 +
+                    (end.tv_nsec - start.tv_nsec) / 1e6;
+    printf("Parallel (8 threads) took %.2f ms\n", elapsed_ms);
     free(output_par);
 
     free(input);
