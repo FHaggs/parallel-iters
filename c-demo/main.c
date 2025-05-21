@@ -54,7 +54,7 @@ int* par_map(const int* input, size_t len, int (*func)(int), size_t num_threads)
 }
 
 int add_one(int x) {
-    return x * x * x;
+    return x + 1;
 }
 
 int* seq_map(const int* input, size_t len, int (*func)(int)) {
