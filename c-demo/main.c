@@ -75,13 +75,17 @@ int main() {
         input[i] = i;
     }
 
-    clock_t start2, end2;
+    struct timespec start2, end2;
 
     // Sequential
-    start2 = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start2);
     int* output_seq = seq_map(input, INPUT_SIZE, add_one);
-    end2 = clock();
-    printf("Sequential took %.2f ms\n", millis(start2, end2));
+    clock_gettime(CLOCK_MONOTONIC, &end2);
+
+    double elapsed_ms2 = (end2.tv_sec - start2.tv_sec) * 1000.0 +
+                    (end2.tv_nsec - start2.tv_nsec) / 1e6;
+    printf("Sequencial took %.2f ms\n", elapsed_ms2);
+
     free(output_seq);
 
     // Parallel

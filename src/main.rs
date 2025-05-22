@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::thread;
 use std::time::Instant;
 
@@ -12,45 +13,41 @@ where
 
 fn par_map<F>(input: &[i32], func: F, num_threads: usize) -> Vec<i32>
 where
-    F: Fn(i32) -> i32 + Copy + Send + Sync + 'static,
+    F: Fn(i32) -> i32 + Send + Sync,
 {
     let len = input.len();
-    let mut output = vec![0; len].into_boxed_slice();
-    let output_ptr = output.as_mut_ptr() as usize; // ← cast to usize
+    let mut output: Vec<MaybeUninit<i32>> = Vec::with_capacity(len);
+    // Safety: We'll initialize every element before reading.
+    unsafe { output.set_len(len) };
 
     let chunk_size = (len + num_threads - 1) / num_threads;
-    let mut handles = Vec::with_capacity(num_threads);
+    let output_ptr = output.as_mut_ptr();
 
-    for t in 0..num_threads {
-        let start = t * chunk_size;
-        let end = (start + chunk_size).min(len);
+    let func = &func; // Capture by reference
 
-        let func = func;
-        let input_slice = &input[start..end];
-        let input_slice = input_slice.to_vec(); // move into thread
-
-        let output_ptr = output_ptr; // move usize into thread
-
-        let handle = thread::spawn(move || {
+    thread::scope(|s| {
+        for t in 0..num_threads {
+            let start = t * chunk_size;
+            let end = (start + chunk_size).min(len);
+            let input_slice = &input[start..end];
             let output_slice = unsafe {
-                let ptr = output_ptr as *mut i32;
-                std::slice::from_raw_parts_mut(ptr.add(start), end - start)
+                std::slice::from_raw_parts_mut(output_ptr.add(start), end - start)
             };
 
-            for (i, val) in input_slice.iter().enumerate() {
-                output_slice[i] = func(*val);
-            }
-        });
+            s.spawn(move || {
+                for (o, &i) in output_slice.iter_mut().zip(input_slice.iter()) {
+                    *o = MaybeUninit::new(func(i));
+                }
+            });
+        }
+    });
 
-        handles.push(handle);
+    // Convert to Vec<i32>
+    unsafe {
+        std::mem::transmute::<Vec<MaybeUninit<i32>>, Vec<i32>>(output)
     }
-
-    for handle in handles {
-        handle.join().unwrap();
-    }
-
-    output.into_vec()
 }
+
 
 fn transform(x: i32) -> i32 {
     x + 1
@@ -69,4 +66,3 @@ fn main() {
 
     assert_eq!(output_seq, output_par);
 }
-
